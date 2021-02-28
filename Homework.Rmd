@@ -1,0 +1,175 @@
+---
+title: "ITBSII Homework"
+author: "Alessandro Giulivo"
+date: "28/5/2020"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Breast Cancer Wisconsin (Diagnostic) Data Set
+
+First, we need to load the required packages and import our dataset from the **cancer_data** file.
+
+
+```{r}
+library(corrplot)
+library(MASS)
+library(matlib)
+library(ISLR)
+
+data <- read.table(file = "cancer_data.txt", header = TRUE)
+dim(data)
+```
+
+
+The **dim** (dimensions) function shows us the number of observations and the number of variables contained in our dataset, whereas we can use the **str** function in order to compactly display the internal structure of our data:
+
+
+```{r}
+str(data)
+```
+
+
+### 1. Select	a	random	sample	(size	n	=	300)	from	the	complete	dataset	and	setting	the	seed	of	the	random	generation	with	your	id	student	number.
+
+After setting the seed as my student number, we can randomly select 300 indexes from the dataset and gather these sample observations inside of *mydata*:
+
+
+```{r}
+set.seed(1906520)
+idx <- sample(x = (1:dim(data)[1]), size = 300, replace = FALSE)
+mydata <- data[idx,]
+colnames(mydata) <- colnames(data)
+attach(mydata)
+dim(mydata)
+```
+
+### 2. Describe	the	variables	with	appropriate	statistical	measures.	Show	the	frequencies	distribution	of	the	response	variable.
+
+The *summary* function gives us a statistical summary for all the 31 variables of our sample (it shows the minimum, the maximum, the quartiles and the mean of every numerical variable).
+
+
+```{r}
+summary(mydata)
+```
+
+To graphically analyze the carachteristics of any variable, we can look at its boxplot, its scatterplot or its histogram: let's take the variable *area_mean* as an example, and use the functions **boxplot**, **plot** and **hist**.
+
+```{r}
+boxplot(area_mean, col = 'gold', main = 'area_mean boxplot') 
+plot(area_mean, type = 'p', col = 'gold', pch = 16, main = 'arean_mean scatter plot')
+hist(area_mean, col = 'gold')
+```
+
+
+
+We can also use the **corrplot** function to plot the graph representing the correlation between all the variables.
+
+
+```{r}
+c <- cor(x = mydata[,c(1:30)])
+par(mfrow=c(1,1))
+corrplot(corr = c, method = "pie", type = "lower")
+
+```
+
+
+Finally, we can graphically see the frequencies distribution of the response variable with the **hist** function or the **plot** function, or numerically with the **table** function.
+
+
+```{r}
+#hist(as.numeric(mydata$diagnosis), breaks = 2)
+plot(mydata$diagnosis, main = 'Diagnosis Distribution', col = c('darkseagreen1', 'darkseagreen3'))
+legend(1.60, 185, legend=c("B = Benign", "M = Malignant"), box.lty = 0)
+table(diagnosis)
+table(diagnosis)/length(diagnosis)
+```
+
+Therefore, in our sample of n =300, the cancer diagnosis which result benign are 178 (59.33%), while the malignant ones are 122 (40.67%).
+
+
+### 4. Propose	a	first	model	and	analyse	the	results.	Show and	comment	the	evaluation	measures. Could	be	there	a	better	model?	Propose	it	and	comment	its	proprieties.
+
+We can propose a first model using the **glm (Generalized Linear Models) function**.
+
+
+```{r}
+model1 <- glm(formula = diagnosis ~., family = binomial, data = mydata)
+summary(model1)
+```
+
+We can analyze this model computing some ealuation measures: the **overall accuracy**, the **mis-classification rate**, the **sensitivity** and the **specificity**.
+
+```{r}
+predict1 <- model1$fitted.values
+pred_table1 <- table(mydata$diagnosis, predict1 > 0.5)
+
+Acc1 <- sum(diag(pred_table1))/sum(pred_table1)
+Mis1 <- 1-Acc1
+
+Sen1 <- pred_table1[2,2]/sum(pred_table1[2,])
+Spe1 <- pred_table1[1,1]/sum(pred_table1[1,])
+
+Eva1 <- round(matrix(data = c(Acc1, Mis1, Sen1, Spe1), nrow = 4, ncol = 1),3)
+row.names(Eva1) <- c("Overall Accuracy", "Mis-classification Rate", "Sensitivity","Specificity")
+pred_table1
+Eva1
+```
+
+As we can see, the model contains too many variables and the evaluation measures show that this first model doesn’t work very well. Therefore, we can remove some variables which are not significant, in order to achieve a more accurate model: using only four (*texture_mean, area_mean, concave_points_mean, area_worst*) of the 30 explanatory variables of our first model, we get a *model2*:
+
+```{r}
+model2 <- glm(formula = diagnosis ~ texture_mean + area_mean + concave_points_mean + area_worst, family = binomial, data = mydata)
+summary(model2)
+```
+
+We can verify the accuracy of our new model using the same evaluation measures we used for our first model.
+
+```{r}
+predict2 <- model2$fitted.values
+pred_table2 <- table(mydata$diagnosis, predict2 > 0.5)
+
+Acc2 <- sum(diag(pred_table2))/sum(pred_table2)
+Mis2 <- 1-Acc2
+
+Sen2 <- pred_table2[2,2]/sum(pred_table2[2,])
+Spe2 <- pred_table2[1,1]/sum(pred_table2[1,])
+
+Eva2 <- round(matrix(data = c(Acc2, Mis2, Sen2, Spe2), nrow = 4, ncol = 1),3)
+row.names(Eva2) <- c("Overall Accuracy", "Mis-classification Rate", "Sensitivity","Specificity")
+pred_table2
+Eva2
+```
+
+It's very clear from the evaluation measures that this new model works better than *model1*.
+
+### Final comments: what are the real predictors for Breast Cancer diagnosis? Describe the sign and the intensity of the effect of each single predictor on the response variable.
+
+After having verified the accuracy of our new model, we can conclude that the real predictors for Breast Cancer Diagnosis and their effect on the response variable (from summary(model2)) are:
+	texture_mean, it affects of +0.375 the prediction of the response variable;
+	area_mean, it affects of -0.024 the prediction of the response variable;
+	concave_points_mean, it affects of +91.024 the prediction of the response variable;
+	area_worst, it affects of +0.029 the prediction of the response variable.
+
+
+
+### Additional point
+
+We can use the *predict* function to estimate whether a cancer is benign or malignant when the values of our variables are the ones found in the predictors table.
+
+
+```{r}
+predictors_table <- read.table(file = "predictors_table.txt")
+colnames(predictors_table) <- c('predictor', 'value')
+predictors_table
+contrasts(diagnosis)
+Prediction <- predict(model2, data.frame(texture_mean = 21.8, area_mean = 782.7, concave_points_mean = 0.074, area_worst = 1084), type = 'response')
+Prediction
+```
+
+According to our prediction based on model2, when the values of the four predictors are the ones found in predictors_table, we get a very **high probability (99.93%) that the Breast Cancer diagnosis is malignant**.
